@@ -27,6 +27,12 @@ jobs:
       - name: Build solution (Release)
         run: msbuild "sources\Jetpack Downgrader.sln" /p:Configuration=Release /p:Platform="Any CPU" /m /nologo
 
+      - name: Download patches
+        shell: cmd
+        run: |
+          curl -L -o patches.zip "https://github.com/%GITHUB_REPOSITORY%/releases/download/patches/patches.zip"
+          powershell -command "Expand-Archive -Path patches.zip -DestinationPath patches_extracted -Force"
+
       - name: Stage artifact files
         shell: cmd
         run: |
@@ -38,6 +44,8 @@ jobs:
           copy "sources\GUI\bin\Release\DarkUI.dll" "artifact\DarkUI.dll"
 
           copy "sources\Downgrader\bin\Release\jpd.exe" "artifact\app\jpd.exe"
+
+          xcopy "patches_extracted" "artifact\app\" /E /I /Y
 
           copy "data\jpd.ini" "artifact\app\jpd.ini"
 
