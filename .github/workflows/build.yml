@@ -30,7 +30,7 @@ jobs:
       - name: Download patches
         shell: cmd
         run: |
-          curl -L -o patches.zip "https://github.com/%GITHUB_REPOSITORY%/releases/download/patches/patches.zip"
+          curl -L -o patches.zip "https://github.com/MrErenK/test_downgrader/releases/download/patches/patches.zip"
           powershell -command "Expand-Archive -Path patches.zip -DestinationPath patches_extracted -Force"
 
       - name: Stage artifact files
