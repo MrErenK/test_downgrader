@@ -28,9 +28,11 @@ jobs:
         run: msbuild "sources\Jetpack Downgrader.sln" /p:Configuration=Release /p:Platform="Any CPU" /m /nologo
 
       - name: Download patches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: cmd
         run: |
-          curl -L -o patches.zip "https://github.com/MrErenK/test_downgrader/releases/download/patches/patches.zip"
+          gh release download patches --repo %GITHUB_REPOSITORY% --pattern "patches.zip" --output patches.zip
           powershell -command "Expand-Archive -Path patches.zip -DestinationPath patches_extracted -Force"
 
       - name: Stage artifact files
