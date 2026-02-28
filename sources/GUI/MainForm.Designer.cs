@@ -31,6 +31,8 @@ namespace JetpackDowngraderGUI
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
             this.button1 = new System.Windows.Forms.Button();
+            this.buttonDownloadPatches = new System.Windows.Forms.Button();
+            this.progressLabel = new System.Windows.Forms.Label();
             this.GamePath = new DarkUI.Controls.DarkTextBox();
             this.checkBox1 = new DarkUI.Controls.DarkCheckBox();
             this.checkBox2 = new DarkUI.Controls.DarkCheckBox();
@@ -67,6 +69,36 @@ namespace JetpackDowngraderGUI
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox7)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox8)).BeginInit();
             this.SuspendLayout();
+            //
+            // buttonDownloadPatches
+            //
+            this.buttonDownloadPatches.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(122)))), ((int)(((byte)(204)))));
+            this.buttonDownloadPatches.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(92)))), ((int)(((byte)(92)))), ((int)(((byte)(92)))));
+            this.buttonDownloadPatches.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.buttonDownloadPatches.Font = new System.Drawing.Font("Arial", 9.75F);
+            this.buttonDownloadPatches.ForeColor = System.Drawing.Color.White;
+            this.buttonDownloadPatches.Location = new System.Drawing.Point(448, 15);
+            this.buttonDownloadPatches.Name = "buttonDownloadPatches";
+            this.buttonDownloadPatches.Size = new System.Drawing.Size(166, 31);
+            this.buttonDownloadPatches.TabIndex = 3;
+            this.buttonDownloadPatches.TabStop = false;
+            this.buttonDownloadPatches.Text = "3. Download patches";
+            this.buttonDownloadPatches.UseVisualStyleBackColor = false;
+            this.buttonDownloadPatches.Visible = false;
+            this.buttonDownloadPatches.Click += new System.EventHandler(this.buttonDownloadPatches_Click);
+            //
+            // progressLabel
+            //
+            this.progressLabel.AutoSize = false;
+            this.progressLabel.Font = new System.Drawing.Font("Arial", 8.25F);
+            this.progressLabel.ForeColor = System.Drawing.Color.LightGray;
+            this.progressLabel.Location = new System.Drawing.Point(448, 49);
+            this.progressLabel.Name = "progressLabel";
+            this.progressLabel.Size = new System.Drawing.Size(166, 16);
+            this.progressLabel.TabIndex = 20;
+            this.progressLabel.Text = "";
+            this.progressLabel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.progressLabel.Visible = false;
             //
             // button1
             //
@@ -403,6 +435,8 @@ namespace JetpackDowngraderGUI
             this.Controls.Add(this.button2);
             this.Controls.Add(this.button6);
             this.Controls.Add(this.button1);
+            this.Controls.Add(this.buttonDownloadPatches);
+            this.Controls.Add(this.progressLabel);
             this.Controls.Add(this.panel1);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -445,6 +479,8 @@ namespace JetpackDowngraderGUI
         DarkUI.Controls.DarkTitle darkTitle1;
         DarkUI.Controls.DarkTitle darkTitle2;
         DarkUI.Controls.DarkButton button7;
+        System.Windows.Forms.Button buttonDownloadPatches;
+        System.Windows.Forms.Label progressLabel;
         System.Windows.Forms.PictureBox pictureBox3;
         System.Windows.Forms.PictureBox pictureBox4;
         DarkUI.Controls.DarkTitle HelloUser;

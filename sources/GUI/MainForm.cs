@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
-
 using System.IO;
+using System.IO.Compression;
+using System.Net;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -13,19 +14,62 @@ namespace JetpackDowngraderGUI
         [System.Runtime.InteropServices.DllImport("DwmApi")]
         static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, int[] attrValue, int attrSize);
         protected override void OnHandleCreated(EventArgs e) { if (DwmSetWindowAttribute(Handle, 19, new[] { 1 }, 4) != 0) { DwmSetWindowAttribute(Handle, 20, new[] { 1 }, 4); } }
-        //
+
+        const string PATCHES_URL = "https://github.com/MrErenK/test_downgrader/releases/download/patches/patches.zip";
+
+        // All .jpp patch files that must exist for a valid patches install
+        static readonly string[] REQUIRED_PATCHES = new[]
+        {
+            @"patches\game.jpp",
+            @"patches\anim\anim.img.jpp",
+            @"patches\audio\CONFIG\TrakLkup.dat.jpp",
+            @"patches\audio\streams\BEATS.jpp",
+            @"patches\audio\streams\CH.jpp",
+            @"patches\audio\streams\CR.jpp",
+            @"patches\audio\streams\CUTSCENE.jpp",
+            @"patches\audio\streams\DS.jpp",
+            @"patches\audio\streams\MH.jpp",
+            @"patches\audio\streams\MR.jpp",
+            @"patches\audio\streams\RE.jpp",
+            @"patches\audio\streams\RG.jpp",
+            @"patches\data\script\main.scm.jpp",
+            @"patches\data\script\script.img.jpp",
+            @"patches\models\gta3.img.jpp",
+            @"patches\models\gta_int.img.jpp",
+        };
+
         string[] lc = new string[100];
         bool[] appset = new bool[8];
         bool tabFix = false;
         public MainForm() { InitializeComponent(); }
         IniEditor cfg = new IniEditor(@Application.StartupPath + @"\app\jpd.ini");
         IniEditor lang = new IniEditor(@Application.StartupPath + @"\languages\" + Properties.Settings.Default.LanguageCode + ".txt");
+
+        // Returns true if patcher.exe and every required .jpp file exist in app\
+        bool PatchesExist()
+        {
+            string appDir = Path.Combine(Application.StartupPath, "app");
+            if (!File.Exists(Path.Combine(appDir, "patcher.exe"))) return false;
+            foreach (string rel in REQUIRED_PATCHES)
+            {
+                if (!File.Exists(Path.Combine(appDir, rel))) return false;
+            }
+            return true;
+        }
+
+        void SetPatchesReady(bool ready)
+        {
+            button1.Visible = ready;
+            buttonDownloadPatches.Visible = !ready;
+            buttonDownloadPatches.Enabled = !ready;
+            progressLabel.Visible = false;
+        }
+
         void MainForm_Load(object sender, EventArgs e)
         {
             try
             {
-                // Loading the localization
-                // Text (GUI) loading
+                // Localization
                 label1.Text = Convert.ToString(lang.GetValue("Interface", "PathLabel"));
                 DSPanel.SectionHeader = Convert.ToString(lang.GetValue("Interface", "Tab1"));
                 button6.Text = "1. " + DSPanel.SectionHeader;
@@ -42,7 +86,6 @@ namespace JetpackDowngraderGUI
                 checkBox3.Text = Convert.ToString(lang.GetValue("CheckBox", "NoUpdates"));
                 checkBox5.Text = Convert.ToString(lang.GetValue("CheckBox", "Forced"));
                 checkBox7.Text = Convert.ToString(lang.GetValue("CheckBox", "DirectPlay"));
-
                 // Title loading
                 lc[0] = Convert.ToString(lang.GetValue("Title", "Info"));
                 lc[1] = Convert.ToString(lang.GetValue("Title", "Error"));
@@ -60,7 +103,8 @@ namespace JetpackDowngraderGUI
                 lc[5] = Convert.ToString(lang.GetValue("WarningMsg", "BrowserNotFound"));
             }
             catch { MessageBox.Show("Error loading the localization file!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error); Application.Exit(); }
-            // Loading settings
+
+            // Settings
             try
             {
                 checkBox1.Checked = Convert.ToBoolean(cfg.GetValue("Downgrader", "CreateBackups"));
@@ -71,7 +115,6 @@ namespace JetpackDowngraderGUI
                 checkBox3.Checked = Convert.ToBoolean(cfg.GetValue("Downgrader", "CreateNewGamePath"));
                 checkBox5.Checked = Convert.ToBoolean(cfg.GetValue("Downgrader", "Forced"));
                 checkBox7.Checked = Convert.ToBoolean(cfg.GetValue("Downgrader", "EnableDirectPlay"));
-
                 appset[0] = Convert.ToBoolean(cfg.GetValue("JPD", "SelectFolder"));
                 appset[1] = Convert.ToBoolean(cfg.GetValue("JPD", "ConsoleTransparency"));
                 appset[2] = Convert.ToBoolean(cfg.GetValue("JPD", "UseMsg"));
@@ -82,6 +125,9 @@ namespace JetpackDowngraderGUI
                 appset[7] = Convert.ToBoolean(cfg.GetValue("Only", "NextCheckFilesAndCheckMD5"));
             }
             catch { MsgError(lc[2], lc[1]); }
+
+            // Check if patches are already present
+            SetPatchesReady(PatchesExist());
         }
 
         async void button1_Click(object sender, EventArgs e)
@@ -93,34 +139,88 @@ namespace JetpackDowngraderGUI
                 cfg.SetValue("JPD", "UseMsg", "false");
                 cfg.SetValue("JPD", "Component", "true");
 
-                // Run jpd.exe on a background thread so the UI stays responsive
                 await Task.Run(() =>
                 {
                     Process.Start(@Application.StartupPath + @"\app\jpd.exe", "\"" + GamePath.Text + "\"").WaitForExit();
                 });
 
-                // Check whether the jpd process is still running after WaitForExit
                 bool jpdStillRunning = false;
                 foreach (Process process2 in Process.GetProcesses())
                 {
-                    if (process2.ProcessName.ToLower().Contains("jpd"))
-                    {
-                        jpdStillRunning = true;
-                        break;
-                    }
+                    if (process2.ProcessName.ToLower().Contains("jpd")) { jpdStillRunning = true; break; }
                 }
 
                 if (!jpdStillRunning)
                 {
-                    // Install mods
-
-                    //
                     MsgInfo(lc[4], lc[0]);
                 }
 
                 this.Enabled = true;
             }
             else { MsgWarning(lc[7], lc[8]); }
+        }
+
+        async void buttonDownloadPatches_Click(object sender, EventArgs e)
+        {
+            buttonDownloadPatches.Enabled = false;
+            progressLabel.Visible = true;
+            progressLabel.Text = "Connecting...";
+
+            string appDir = Path.Combine(Application.StartupPath, "app");
+            string zipPath = Path.Combine(appDir, "patches.zip");
+
+            try
+            {
+                // Download
+                using (var wc = new WebClient())
+                {
+                    wc.DownloadProgressChanged += (s, args) =>
+                    {
+                        progressLabel.Text = args.TotalBytesToReceive > 0
+                            ? $"Downloading... {args.ProgressPercentage}%"
+                            : $"Downloading... {args.BytesReceived / 1048576} MB";
+                    };
+                    await wc.DownloadFileTaskAsync(new Uri(PATCHES_URL), zipPath);
+                }
+
+                // Validate the zip isn't a tiny error page
+                if (new FileInfo(zipPath).Length < 1024)
+                {
+                    File.Delete(zipPath);
+                    MsgError("Download failed: the patches file was not found on the server.\nMake sure the release with tag \"patches\" and asset \"patches.zip\" exists.", lc[1]);
+                    buttonDownloadPatches.Enabled = true;
+                    progressLabel.Text = "";
+                    return;
+                }
+
+                // Extract
+                progressLabel.Text = "Extracting...";
+                await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, appDir));
+
+                // Clean up zip
+                File.Delete(zipPath);
+
+                // Verify all files are now present
+                if (PatchesExist())
+                {
+                    progressLabel.Visible = false;
+                    SetPatchesReady(true);
+                    MsgInfo("Patches downloaded successfully!", lc[0]);
+                }
+                else
+                {
+                    MsgError("Extraction completed but some patch files are still missing.\nPlease check the patches.zip structure.", lc[1]);
+                    buttonDownloadPatches.Enabled = true;
+                    progressLabel.Text = "";
+                }
+            }
+            catch (Exception ex)
+            {
+                if (File.Exists(zipPath)) { try { File.Delete(zipPath); } catch { } }
+                MsgError("Failed to download patches:\n" + ex.Message, lc[1]);
+                buttonDownloadPatches.Enabled = true;
+                progressLabel.Text = "";
+            }
         }
 
         void pictureBox1_Click(object sender, EventArgs e)
@@ -133,15 +233,15 @@ namespace JetpackDowngraderGUI
             if (dialog.Show()) { GamePath.Text = dialog.FileName; } else { GamePath.Clear(); }
         }
 
-        void checkBox2_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "CreateShortcut", Convert.ToString(checkBox2.Checked).Replace("T", "t").Replace("F", "f"));  }
         void checkBox1_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "CreateBackups", Convert.ToString(checkBox1.Checked).Replace("T", "t").Replace("F", "f")); }
-        void checkBox4_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "GarbageCleaning", Convert.ToString(checkBox4.Checked).Replace("T", "t").Replace("F", "f"));  }
-        void checkBox6_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "RegisterGamePath", Convert.ToString(checkBox6.Checked).Replace("T", "t").Replace("F", "f")); }
-        void checkBox5_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "Forced", Convert.ToString(checkBox5.Checked).Replace("T", "t").Replace("F", "f")); }
-
-        void checkBox7_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "EnableDirectPlay", Convert.ToString(checkBox7.Checked).Replace("T", "t").Replace("F", "f")); }
+        void checkBox2_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "CreateShortcut", Convert.ToString(checkBox2.Checked).Replace("T", "t").Replace("F", "f")); }
         void checkBox3_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "CreateNewGamePath", Convert.ToString(checkBox3.Checked).Replace("T", "t").Replace("F", "f")); }
+        void checkBox4_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "GarbageCleaning", Convert.ToString(checkBox4.Checked).Replace("T", "t").Replace("F", "f")); }
+        void checkBox5_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "Forced", Convert.ToString(checkBox5.Checked).Replace("T", "t").Replace("F", "f")); }
+        void checkBox6_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "RegisterGamePath", Convert.ToString(checkBox6.Checked).Replace("T", "t").Replace("F", "f")); }
+        void checkBox7_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "EnableDirectPlay", Convert.ToString(checkBox7.Checked).Replace("T", "t").Replace("F", "f")); }
         void checkBox9_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "ResetGame", Convert.ToString(checkBox9.Checked).Replace("T", "t").Replace("F", "f")); }
+
         void pictureBox4_Click(object sender, EventArgs e) { try { Process.Start("https://github.com/Zalexanninev15/Jetpack-Downgrader"); } catch { MsgError(lc[5], lc[1]); } }
         void MsgInfo(string message, string title) { MessageBox.Show(message, title, MessageBoxButtons.OK, MessageBoxIcon.Information); }
         void MsgError(string message, string title) { MessageBox.Show(message, title, MessageBoxButtons.OK, MessageBoxIcon.Error); }

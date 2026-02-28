@@ -27,14 +27,6 @@ jobs:
       - name: Build solution (Release)
         run: msbuild "sources\Jetpack Downgrader.sln" /p:Configuration=Release /p:Platform="Any CPU" /m /nologo
 
-      - name: Download patches
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: cmd
-        run: |
-          gh release download patches --repo %GITHUB_REPOSITORY% --pattern "patches.zip" --output patches.zip
-          powershell -command "Expand-Archive -Path patches.zip -DestinationPath patches_extracted -Force"
-
       - name: Stage artifact files
         shell: cmd
         run: |
@@ -47,8 +39,6 @@ jobs:
 
           copy "sources\Downgrader\bin\Release\jpd.exe" "artifact\app\jpd.exe"
 
-          xcopy "patches_extracted" "artifact\app\" /E /I /Y
-
           copy "data\jpd.ini" "artifact\app\jpd.ini"
 
           copy "data\Languages\EN.txt" "artifact\languages\EN.txt"
@@ -59,3 +49,22 @@ jobs:
           name: Jetpack-Downgrader
           path: artifact\
           if-no-files-found: error
+
+      - name: Zip artifact for release
+        if: github.event_name != 'pull_request'
+        shell: cmd
+        run: |
+          powershell -command "Compress-Archive -Path 'artifact\*' -DestinationPath 'Jetpack-Downgrader.zip' -Force"
+
+      - name: Create GitHub release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "Build #${{ github.run_number }}"
+          body: |
+            Automated build from commit ${{ github.sha }}
+          files: Jetpack-Downgrader.zip
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
