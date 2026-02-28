@@ -2,9 +2,9 @@ name: Build
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
   workflow_dispatch:
 
 jobs:
@@ -27,16 +27,25 @@ jobs:
       - name: Build solution (Release)
         run: msbuild "sources\Jetpack Downgrader.sln" /p:Configuration=Release /p:Platform="Any CPU" /m /nologo
 
-      - name: Upload Downgrader artifact (jpd.exe)
-        uses: actions/upload-artifact@v4
-        with:
-          name: jpd
-          path: sources\Downgrader\bin\Release\jpd.exe
-          if-no-files-found: error
+      - name: Stage artifact files
+        shell: cmd
+        run: |
+          mkdir artifact
+          mkdir artifact\app
+          mkdir artifact\languages
 
-      - name: Upload GUI artifact (gui.exe)
+          copy "sources\GUI\bin\Release\gui.exe" "artifact\gui.exe"
+          copy "sources\GUI\bin\Release\DarkUI.dll" "artifact\DarkUI.dll"
+
+          copy "sources\Downgrader\bin\Release\jpd.exe" "artifact\app\jpd.exe"
+
+          copy "data\jpd.ini" "artifact\app\jpd.ini"
+
+          copy "data\Languages\EN.txt" "artifact\languages\EN.txt"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gui
-          path: sources\GUI\bin\Release\gui.exe
+          name: Jetpack-Downgrader
+          path: artifact\
           if-no-files-found: error

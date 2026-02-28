@@ -331,10 +331,11 @@ namespace Downgrader
                         }
                         // fisv = true means ALL checked files passed MD5; starts true and is set false on any mismatch
                         bool fisv = true;
+                        string GameMD5 = "";
                         if ((er == 0) && (settings[4] == false))
                         {
                             // Checking files before downgrade (MD5)
-                            string GameMD5 = "";
+                            GameMD5 = "";
                             Logger("Game", "All", "true");
                             Logger("Downgrader", "Process", "Checking original files before downgrade (MD5)...");
                             if (gv == 3) // Rockstar Games Launcher
@@ -562,7 +563,7 @@ namespace Downgrader
                                             // Checking files after downgrade (MD5) — fisv starts true; any mismatch sets it false
                                             fisv = true;
                                             Logger("Downgrader", "Process", "Checking files after downgrade (MD5)...");
-                                            string GameMD5 = "";
+                                            GameMD5 = "";
                                             if (gv == 6) // 1.01
                                             {
                                                 try
