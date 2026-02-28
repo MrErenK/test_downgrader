@@ -2,19 +2,13 @@
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-
 namespace JetpackDowngraderGUI
 {
     public partial class MainForm : Form
     {
-        // Dark title for Windows 10
-        [System.Runtime.InteropServices.DllImport("DwmApi")]
-        static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, int[] attrValue, int attrSize);
-        protected override void OnHandleCreated(EventArgs e) { if (DwmSetWindowAttribute(Handle, 19, new[] { 1 }, 4) != 0) { DwmSetWindowAttribute(Handle, 20, new[] { 1 }, 4); } }
-
         const string PATCHES_URL = "https://github.com/MrErenK/test_downgrader/releases/download/patches/patches.zip";
 
         // All .jpp patch files that must exist for a valid patches install
@@ -45,7 +39,7 @@ namespace JetpackDowngraderGUI
         IniEditor cfg = new IniEditor(@Application.StartupPath + @"\app\jpd.ini");
         IniEditor lang = new IniEditor(@Application.StartupPath + @"\languages\" + Properties.Settings.Default.LanguageCode + ".txt");
 
-        // Returns true if patcher.exe and every required .jpp file exist in app\
+        // Returns true if patcher.exe and every required .jpp file exist under app\
         bool PatchesExist()
         {
             string appDir = Path.Combine(Application.StartupPath, "app");
@@ -65,16 +59,20 @@ namespace JetpackDowngraderGUI
             progressLabel.Visible = false;
         }
 
+
+
         void MainForm_Load(object sender, EventArgs e)
         {
             try
             {
                 // Localization
                 label1.Text = Convert.ToString(lang.GetValue("Interface", "PathLabel"));
-                DSPanel.SectionHeader = Convert.ToString(lang.GetValue("Interface", "Tab1"));
-                button6.Text = "1. " + DSPanel.SectionHeader;
-                ModsPanel.SectionHeader = Convert.ToString(lang.GetValue("Interface", "Tab2"));
-                button2.Text = "2. " + ModsPanel.SectionHeader;
+                string tab1 = Convert.ToString(lang.GetValue("Interface", "Tab1"));
+                string tab2 = Convert.ToString(lang.GetValue("Interface", "Tab2"));
+                DSPanelHeaderLabel.Text = tab1;
+                button6.Text = "1. " + tab1;
+                ModsPanelHeaderLabel.Text = tab2;
+                button2.Text = "2. " + tab2;
                 button1.Text = "3. " + Convert.ToString(lang.GetValue("Interface", "Downgrade"));
                 HelloUser.Text = Convert.ToString(lang.GetValue("Interface", "Stage"));
                 // CheckBox loading
@@ -172,15 +170,29 @@ namespace JetpackDowngraderGUI
             try
             {
                 // Download
-                using (var wc = new WebClient())
+                using (var http = new HttpClient())
                 {
-                    wc.DownloadProgressChanged += (s, args) =>
+                    http.DefaultRequestHeaders.Add("User-Agent", "JetpackDowngrader");
+                    using (var response = await http.GetAsync(PATCHES_URL, HttpCompletionOption.ResponseHeadersRead))
                     {
-                        progressLabel.Text = args.TotalBytesToReceive > 0
-                            ? $"Downloading... {args.ProgressPercentage}%"
-                            : $"Downloading... {args.BytesReceived / 1048576} MB";
-                    };
-                    await wc.DownloadFileTaskAsync(new Uri(PATCHES_URL), zipPath);
+                        response.EnsureSuccessStatusCode();
+                        long? totalBytes = response.Content.Headers.ContentLength;
+                        using (var srcStream = await response.Content.ReadAsStreamAsync())
+                        using (var dstStream = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true))
+                        {
+                            byte[] buffer = new byte[81920];
+                            long bytesRead = 0;
+                            int read;
+                            while ((read = await srcStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                            {
+                                await dstStream.WriteAsync(buffer, 0, read);
+                                bytesRead += read;
+                                progressLabel.Text = totalBytes.HasValue
+                                    ? $"Downloading... {bytesRead * 100 / totalBytes.Value}%"
+                                    : $"Downloading... {bytesRead / 1048576} MB";
+                            }
+                        }
+                    }
                 }
 
                 // Validate the zip isn't a tiny error page
@@ -193,13 +205,36 @@ namespace JetpackDowngraderGUI
                     return;
                 }
 
-                // Extract — the zip contains a "patches" folder at its root which
-                // itself contains patcher.exe and a nested patches\ folder.
-                // Extracting to appDir's parent (Application.StartupPath) makes
-                // everything land correctly at app\patcher.exe and app\patches\...
+                // Extract — the zip has a top-level "patches/" folder that contains
+                // patcher.exe plus a nested patches/ subfolder with all .jpp files.
+                // We strip the leading "patches/" prefix from every entry so that:
+                //   patches/patcher.exe          -> app\patcher.exe
+                //   patches/patches/game.jpp     -> app\patches\game.jpp  (etc.)
                 progressLabel.Text = "Extracting...";
-                string extractTarget = Application.StartupPath;
-                await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, extractTarget));
+                await Task.Run(() =>
+                {
+                    using (var archive = ZipFile.OpenRead(zipPath))
+                    {
+                        foreach (var entry in archive.Entries)
+                        {
+                            // Skip pure directory entries
+                            if (string.IsNullOrEmpty(entry.Name)) continue;
+
+                            // Strip the leading "patches/" segment
+                            string relativePath = entry.FullName;
+                            const string prefix = "patches/";
+                            if (relativePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                                relativePath = relativePath.Substring(prefix.Length);
+
+                            // Convert forward slashes to backslashes
+                            relativePath = relativePath.Replace('/', Path.DirectorySeparatorChar);
+
+                            string destPath = Path.Combine(appDir, relativePath);
+                            Directory.CreateDirectory(Path.GetDirectoryName(destPath));
+                            entry.ExtractToFile(destPath, overwrite: true);
+                        }
+                    }
+                });
 
                 // Clean up zip
                 File.Delete(zipPath);
@@ -234,7 +269,7 @@ namespace JetpackDowngraderGUI
                 InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
                 Title = lc[6]
             };
-            if (dialog.Show()) { GamePath.Text = dialog.FileName; } else { GamePath.Clear(); }
+            if (dialog.Show()) { GamePath.Text = dialog.FileName; } else { GamePath.Text = ""; }
         }
 
         void checkBox1_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "CreateBackups", Convert.ToString(checkBox1.Checked).Replace("T", "t").Replace("F", "f")); }

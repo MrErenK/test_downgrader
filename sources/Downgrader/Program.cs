@@ -73,31 +73,34 @@ namespace Downgrader
             {
                 if (File.Exists(@Path.GetDirectoryName(@System.Reflection.Assembly.GetExecutingAssembly().Location) + @"\jpd.ini") == false) { File.WriteAllText(@Path.GetDirectoryName(@System.Reflection.Assembly.GetExecutingAssembly().Location) + @"\jpd.ini", Properties.Resources.jpd); }
                 IniLoader cfg = new IniLoader(@Path.GetDirectoryName(@System.Reflection.Assembly.GetExecutingAssembly().Location) + @"\jpd.ini");
-                settings[0]  = Convert.ToBoolean(cfg.GetValue("Downgrader", "ReadOnlyFiles"));
-                settings[2]  = Convert.ToBoolean(cfg.GetValue("Downgrader", "CreateBackups"));
-                settings[6]  = Convert.ToBoolean(cfg.GetValue("Downgrader", "CreateShortcut"));
-                settings[7]  = Convert.ToBoolean(cfg.GetValue("Downgrader", "ResetGame"));
+                settings[0] = Convert.ToBoolean(cfg.GetValue("Downgrader", "ReadOnlyFiles"));
+                settings[2] = Convert.ToBoolean(cfg.GetValue("Downgrader", "CreateBackups"));
+                settings[6] = Convert.ToBoolean(cfg.GetValue("Downgrader", "CreateShortcut"));
+                settings[7] = Convert.ToBoolean(cfg.GetValue("Downgrader", "ResetGame"));
                 settings[14] = Convert.ToBoolean(cfg.GetValue("Downgrader", "GarbageCleaning"));
-                settings[9]  = Convert.ToBoolean(cfg.GetValue("Downgrader", "RegisterGamePath"));
+                settings[9] = Convert.ToBoolean(cfg.GetValue("Downgrader", "RegisterGamePath"));
                 settings[10] = Convert.ToBoolean(cfg.GetValue("Downgrader", "CreateNewGamePath"));
                 settings[12] = Convert.ToBoolean(cfg.GetValue("Downgrader", "Forced"));
                 settings[16] = Convert.ToBoolean(cfg.GetValue("Downgrader", "EnableDirectPlay"));
-                settings[8]  = Convert.ToBoolean(cfg.GetValue("JPD", "SelectFolder"));
+                settings[8] = Convert.ToBoolean(cfg.GetValue("JPD", "SelectFolder"));
                 settings[11] = Convert.ToBoolean(cfg.GetValue("JPD", "ConsoleTransparency"));
                 settings[13] = Convert.ToBoolean(cfg.GetValue("JPD", "UseMsg"));
                 settings[15] = Convert.ToBoolean(cfg.GetValue("JPD", "UseProgressBar"));
-                settings[1]  = Convert.ToBoolean(cfg.GetValue("JPD", "Component"));
-                settings[3]  = Convert.ToBoolean(cfg.GetValue("Only", "GameVersion"));
-                settings[4]  = Convert.ToBoolean(cfg.GetValue("Only", "NextCheckFiles"));
-                settings[5]  = Convert.ToBoolean(cfg.GetValue("Only", "NextCheckFilesAndCheckMD5"));
+                settings[1] = Convert.ToBoolean(cfg.GetValue("JPD", "Component"));
+                settings[3] = Convert.ToBoolean(cfg.GetValue("Only", "GameVersion"));
+                settings[4] = Convert.ToBoolean(cfg.GetValue("Only", "NextCheckFiles"));
+                settings[5] = Convert.ToBoolean(cfg.GetValue("Only", "NextCheckFilesAndCheckMD5"));
                 Logger("App", "jpd.ini", "true");
             }
             catch { Logger("App", "jpd.ini", "false"); }
             if (File.Exists(@Path.GetDirectoryName(@System.Reflection.Assembly.GetExecutingAssembly().Location) + @"\patcher.exe"))
             {
                 if (settings[11] == true) { EnableBlurBehind(); MakeTransparent(50); }
-                if ((settings[1] == true) && (settings[8] == false)) { try { path = args[0]; } catch { }
-                if (Directory.Exists(@path) == false) { Logger("Game", "Path", "null"); } }
+                if ((settings[1] == true) && (settings[8] == false))
+                {
+                    try { path = args[0]; } catch { }
+                    if (Directory.Exists(@path) == false) { Logger("Game", "Path", "null"); }
+                }
                 if (settings[8] == true)
                 {
                     var dialog = new FolderSelectDialog { InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), Title = "Select the game folder" };
@@ -741,11 +744,11 @@ namespace Downgrader
         }
         static void Create(string ShortcutPath, string TargetPath)
         {
-            IWshRuntimeLibrary.WshShell wshShell = new IWshRuntimeLibrary.WshShell();
-            IWshRuntimeLibrary.IWshShortcut Shortcut = (IWshRuntimeLibrary.IWshShortcut)wshShell.CreateShortcut(ShortcutPath);
-            Shortcut.TargetPath = TargetPath;
-            Shortcut.WorkingDirectory = TargetPath.Replace(@"\gta_sa.exe", "");
-            Shortcut.Save();
+            var shellLink = (IShellLink)new ShellLink();
+            shellLink.SetPath(TargetPath);
+            shellLink.SetWorkingDirectory(TargetPath.Replace(@"\gta_sa.exe", ""));
+            var persistFile = (IPersistFile)shellLink;
+            persistFile.Save(ShortcutPath, false);
         }
         static string GetMD5(string file)
         {
@@ -760,5 +763,47 @@ namespace Downgrader
                 }
             }
         }
+    }
+
+    [ComImport]
+    [Guid("00021401-0000-0000-C000-000000000046")]
+    class ShellLink { }
+
+    [ComImport]
+    [Guid("000214F9-0000-0000-C000-000000000046")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IShellLink
+    {
+        void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pszFile, int cchMaxPath, IntPtr pfd, uint fFlags);
+        void GetIDList(out IntPtr ppidl);
+        void SetIDList(IntPtr pidl);
+        void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pszName, int cchMaxName);
+        void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string pszName);
+        void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pszDir, int cchMaxPath);
+        void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string pszDir);
+        void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pszArgs, int cchMaxPath);
+        void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string pszArgs);
+        void GetHotkey(out short pwHotkey);
+        void SetHotkey(short wHotkey);
+        void GetShowCmd(out int piShowCmd);
+        void SetShowCmd(int iShowCmd);
+        void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder pszIconPath, int cchIconPath, out int piIcon);
+        void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string pszIconPath, int iIcon);
+        void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string pszPathRel, uint dwReserved);
+        void Resolve(IntPtr hwnd, uint fFlags);
+        void SetPath([MarshalAs(UnmanagedType.LPWStr)] string pszFile);
+    }
+
+    [ComImport]
+    [Guid("0000010b-0000-0000-C000-000000000046")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPersistFile
+    {
+        void GetClassID(out Guid pClassID);
+        void IsDirty();
+        void Load([MarshalAs(UnmanagedType.LPWStr)] string pszFileName, uint dwMode);
+        void Save([MarshalAs(UnmanagedType.LPWStr)] string pszFileName, [MarshalAs(UnmanagedType.Bool)] bool fRemember);
+        void SaveCompleted([MarshalAs(UnmanagedType.LPWStr)] string pszFileName);
+        void GetCurFile([MarshalAs(UnmanagedType.LPWStr)] out string ppszFileName);
     }
 }

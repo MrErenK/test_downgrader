@@ -17,17 +17,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v2
+      - name: Restore packages
+        run: dotnet restore "sources/Jetpack Downgrader.sln"
 
-      - name: Restore NuGet packages
-        run: nuget restore "sources\Jetpack Downgrader.sln"
+      - name: Publish GUI
+        run: >
+          dotnet publish "sources/GUI/GUI.csproj"
+          -c Release
+          -r win-x86
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/gui
 
-      - name: Build solution (Release)
-        run: msbuild "sources\Jetpack Downgrader.sln" /p:Configuration=Release /p:Platform="Any CPU" /m /nologo
+      - name: Publish Downgrader
+        run: >
+          dotnet publish "sources/Downgrader/Downgrader.csproj"
+          -c Release
+          -r win-x86
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/downgrader
 
       - name: Stage artifact files
         shell: cmd
@@ -36,14 +52,10 @@ jobs:
           mkdir artifact\app
           mkdir artifact\languages
 
-          copy "sources\GUI\bin\Release\gui.exe" "artifact\gui.exe"
-          copy "sources\GUI\bin\Release\DarkUI.dll" "artifact\DarkUI.dll"
-
-          copy "sources\Downgrader\bin\Release\jpd.exe" "artifact\app\jpd.exe"
-
-          copy "data\jpd.ini" "artifact\app\jpd.ini"
-
-          copy "data\Languages\EN.txt" "artifact\languages\EN.txt"
+          copy "publish\gui\gui.exe"           "artifact\gui.exe"
+          copy "publish\downgrader\jpd.exe"    "artifact\app\jpd.exe"
+          copy "data\jpd.ini"                  "artifact\app\jpd.ini"
+          copy "data\Languages\EN.txt"         "artifact\languages\EN.txt"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -54,9 +66,8 @@ jobs:
 
       - name: Zip artifact for release
         if: github.event_name != 'pull_request'
-        shell: cmd
-        run: |
-          powershell -command "Compress-Archive -Path 'artifact\*' -DestinationPath 'Jetpack-Downgrader.zip' -Force"
+        shell: pwsh
+        run: Compress-Archive -Path 'artifact\*' -DestinationPath 'Jetpack-Downgrader.zip' -Force
 
       - name: Create GitHub release
         if: github.event_name != 'pull_request'
