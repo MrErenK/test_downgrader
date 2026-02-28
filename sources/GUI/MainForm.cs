@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Net;
+
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace JetpackDowngraderGUI
@@ -41,7 +42,7 @@ namespace JetpackDowngraderGUI
                 checkBox3.Text = Convert.ToString(lang.GetValue("CheckBox", "NoUpdates"));
                 checkBox5.Text = Convert.ToString(lang.GetValue("CheckBox", "Forced"));
                 checkBox7.Text = Convert.ToString(lang.GetValue("CheckBox", "DirectPlay"));
-                checkBox8.Text = Convert.ToString(lang.GetValue("CheckBox", "InstallDirectX"));
+
                 // Title loading
                 lc[0] = Convert.ToString(lang.GetValue("Title", "Info"));
                 lc[1] = Convert.ToString(lang.GetValue("Title", "Error"));
@@ -70,7 +71,7 @@ namespace JetpackDowngraderGUI
                 checkBox3.Checked = Convert.ToBoolean(cfg.GetValue("Downgrader", "CreateNewGamePath"));
                 checkBox5.Checked = Convert.ToBoolean(cfg.GetValue("Downgrader", "Forced"));
                 checkBox7.Checked = Convert.ToBoolean(cfg.GetValue("Downgrader", "EnableDirectPlay"));
-                checkBox8.Checked = Convert.ToBoolean(cfg.GetValue("Downgrader", "InstallDirectX"));
+
                 appset[0] = Convert.ToBoolean(cfg.GetValue("JPD", "SelectFolder"));
                 appset[1] = Convert.ToBoolean(cfg.GetValue("JPD", "ConsoleTransparency"));
                 appset[2] = Convert.ToBoolean(cfg.GetValue("JPD", "UseMsg"));
@@ -88,21 +89,36 @@ namespace JetpackDowngraderGUI
             if (Directory.Exists(@GamePath.Text))
             {
                 this.Enabled = false;
-                int d = 0;
                 cfg.SetValue("JPD", "SelectFolder", "false");
                 cfg.SetValue("JPD", "UseMsg", "false");
                 cfg.SetValue("JPD", "Component", "true");
-                Process.Start(@Application.StartupPath + @"\app\jpd.exe", "\"" + GamePath.Text + "\"").WaitForExit();
-                string str = "jpd";
-                foreach (Process process2 in Process.GetProcesses()) { if (!process2.ProcessName.ToLower().Contains(str.ToLower())) { d = 1; } }
-                if (d == 1)
+
+                // Run jpd.exe on a background thread so the UI stays responsive
+                await Task.Run(() =>
+                {
+                    Process.Start(@Application.StartupPath + @"\app\jpd.exe", "\"" + GamePath.Text + "\"").WaitForExit();
+                });
+
+                // Check whether the jpd process is still running after WaitForExit
+                bool jpdStillRunning = false;
+                foreach (Process process2 in Process.GetProcesses())
+                {
+                    if (process2.ProcessName.ToLower().Contains("jpd"))
+                    {
+                        jpdStillRunning = true;
+                        break;
+                    }
+                }
+
+                if (!jpdStillRunning)
                 {
                     // Install mods
 
                     //
                     MsgInfo(lc[4], lc[0]);
-                    this.Enabled = true;
                 }
+
+                this.Enabled = true;
             }
             else { MsgWarning(lc[7], lc[8]); }
         }
@@ -122,7 +138,7 @@ namespace JetpackDowngraderGUI
         void checkBox4_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "GarbageCleaning", Convert.ToString(checkBox4.Checked).Replace("T", "t").Replace("F", "f"));  }
         void checkBox6_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "RegisterGamePath", Convert.ToString(checkBox6.Checked).Replace("T", "t").Replace("F", "f")); }
         void checkBox5_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "Forced", Convert.ToString(checkBox5.Checked).Replace("T", "t").Replace("F", "f")); }
-        void checkBox8_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "InstallDirectX", Convert.ToString(checkBox8.Checked).Replace("T", "t").Replace("F", "f")); }
+
         void checkBox7_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "EnableDirectPlay", Convert.ToString(checkBox7.Checked).Replace("T", "t").Replace("F", "f")); }
         void checkBox3_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "CreateNewGamePath", Convert.ToString(checkBox3.Checked).Replace("T", "t").Replace("F", "f")); }
         void checkBox9_CheckedChanged(object sender, EventArgs e) { cfg.SetValue("Downgrader", "ResetGame", Convert.ToString(checkBox9.Checked).Replace("T", "t").Replace("F", "f")); }
@@ -132,15 +148,15 @@ namespace JetpackDowngraderGUI
         void MsgWarning(string message, string title) { MessageBox.Show(message, title, MessageBoxButtons.OK, MessageBoxIcon.Warning); }
         void button7_Click(object sender, EventArgs e) { Process.Start("notepad.exe", @Application.StartupPath + @"\app\jpd.ini"); }
         void pictureBox3_Click(object sender, EventArgs e) { MsgInfo("Jetpack GUI\n" + lc[9] + ": " + Convert.ToString(Application.ProductVersion).Replace(".0", "") + "\n" + lc[10] + " Zalexanninev15", lc[0]); }
-        
+
         void button6_Click(object sender, EventArgs e)
-        { 
-            if (DSPanel.Visible == false) { tabFix = false; ModsPanel.Visible = false; DSPanel.Visible = true; } 
-            else 
-            { 
-                if (tabFix == false) { DSPanel.Visible = false; ModsPanel.Visible = false; } 
-                else { tabFix = false; ModsPanel.Visible = false; } 
-            } 
+        {
+            if (DSPanel.Visible == false) { tabFix = false; ModsPanel.Visible = false; DSPanel.Visible = true; }
+            else
+            {
+                if (tabFix == false) { DSPanel.Visible = false; ModsPanel.Visible = false; }
+                else { tabFix = false; ModsPanel.Visible = false; }
+            }
         }
 
         void button2_Click(object sender, EventArgs e)
