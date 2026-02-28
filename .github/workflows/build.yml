@@ -1,0 +1,42 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore NuGet packages
+        run: nuget restore "sources\Jetpack Downgrader.sln"
+
+      - name: Build solution (Release)
+        run: msbuild "sources\Jetpack Downgrader.sln" /p:Configuration=Release /p:Platform="Any CPU" /m /nologo
+
+      - name: Upload Downgrader artifact (jpd.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: jpd
+          path: sources\Downgrader\bin\Release\jpd.exe
+          if-no-files-found: error
+
+      - name: Upload GUI artifact (gui.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui
+          path: sources\GUI\bin\Release\gui.exe
+          if-no-files-found: error
