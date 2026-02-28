@@ -193,9 +193,13 @@ namespace JetpackDowngraderGUI
                     return;
                 }
 
-                // Extract
+                // Extract — the zip contains a "patches" folder at its root which
+                // itself contains patcher.exe and a nested patches\ folder.
+                // Extracting to appDir's parent (Application.StartupPath) makes
+                // everything land correctly at app\patcher.exe and app\patches\...
                 progressLabel.Text = "Extracting...";
-                await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, appDir));
+                string extractTarget = Application.StartupPath;
+                await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, extractTarget));
 
                 // Clean up zip
                 File.Delete(zipPath);
